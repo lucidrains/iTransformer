@@ -79,10 +79,11 @@ class iTransformer(Module):
     def __init__(
         self,
         *,
-        num_variates,
-        lookback_len,
-        depth,
-        dim,
+        num_variates: int,
+        lookback_len: int,
+        depth: int,
+        dim: int,
+        num_tokens_per_variant = 1,
         pred_length: Union[int, Tuple[int, ...]],
         dim_head = 32,
         heads = 4,
@@ -110,7 +111,8 @@ class iTransformer(Module):
             ]))
 
         self.mlp_in = nn.Sequential(
-            nn.Linear(lookback_len, dim),
+            nn.Linear(lookback_len, dim * num_tokens_per_variant),
+            Rearrange('b v (n d) -> b (v n) d', n = num_tokens_per_variant),
             nn.LayerNorm(dim)
         )
 
@@ -118,7 +120,8 @@ class iTransformer(Module):
 
         for one_pred_length in pred_length:
             head = nn.Sequential(
-                nn.Linear(dim, one_pred_length),
+                Rearrange('b (v n) d -> b v (n d)', n = num_tokens_per_variant),
+                nn.Linear(dim * num_tokens_per_variant, one_pred_length),
                 Rearrange('b v n -> b n v')
             )
 
