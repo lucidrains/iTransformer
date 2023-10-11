@@ -8,6 +8,10 @@ All that remains is tabular data (xgboost still champion here) before one can tr
 
 In before Apple gets the authors to change the name.
 
+## Appreciation
+
+- <a href="https://stability.ai/">StabilityAI</a> and <a href="https://huggingface.co/">🤗 Huggingface</a> for the generous sponsorship, as well as my other sponsors, for affording me the independence to open source current artificial intelligence techniques.
+
 ## Install
 
 ```bash
