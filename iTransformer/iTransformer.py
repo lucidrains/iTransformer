@@ -117,9 +117,10 @@ class iTransformer(Module):
 
             self.pred_heads.append(head)
 
+    @beartype
     def forward(
         self,
-        x,
+        x: Tensor,
         targets: Optional[Union[Tensor, Tuple[Tensor, ...]]] = None
     ):
         """
