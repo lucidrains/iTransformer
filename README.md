@@ -1,6 +1,6 @@
 <img src="./itransformer.png" width="400px"></img>
 
-## iTransformer (wip)
+## iTransformer
 
 Implementation of <a href="https://arxiv.org/abs/2310.06625">iTransformer</a> - SOTA Time Series Forecasting using Attention networks, out of Tsinghua / Ant group
 
