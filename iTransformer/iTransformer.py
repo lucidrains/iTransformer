@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from beartype import beartype
 from beartype.typing import Optional, Union, Tuple
 
-from einops import rearrange, reduce, repeat
+from einops import rearrange, reduce, repeat, pack, unpack
 from einops.layers.torch import Rearrange
 
 # helper functions
@@ -88,11 +88,14 @@ class iTransformer(Module):
         heads = 4,
         attn_dropout = 0.,
         ff_mult = 4,
-        ff_dropout = 0.
+        ff_dropout = 0.,
+        num_mem_tokens = 4
     ):
         super().__init__()
         self.num_variates = num_variates
         self.lookback_len = lookback_len
+
+        self.mem_tokens = nn.Parameter(torch.randn(num_mem_tokens, dim)) if num_mem_tokens > 0 else None
 
         pred_length = cast_tuple(pred_length)
         self.pred_length = pred_length
@@ -134,7 +137,7 @@ class iTransformer(Module):
         n - time
         v - variate
         """
-
+        has_mem = exists(self.mem_tokens)
         assert x.shape[1:] == (self.lookback_len, self.num_variates)
 
         # the crux of the paper is basically treating variates as the spatial dimension in attention
@@ -143,6 +146,12 @@ class iTransformer(Module):
         x = rearrange(x, 'b n v -> b v n')
         x = self.mlp_in(x)
 
+        # memory tokens
+
+        if has_mem:
+            m = repeat(self.mem_tokens, 'm d -> b m d', b = x.shape[0])
+            x, mem_ps = pack([m, x], 'b * d')
+
         # attention and feedforward layers
 
         for attn, attn_post_norm, ff, ff_post_norm in self.layers:
@@ -150,6 +159,11 @@ class iTransformer(Module):
             x = attn_post_norm(x)
             x = ff(x) + x
             x = ff_post_norm(x)
+
+        # splice out memory tokens
+
+        if has_mem:
+            _, x = unpack(x, mem_ps, 'b * d')
 
         # predicting multiple times
 

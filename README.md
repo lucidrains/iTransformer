@@ -47,7 +47,7 @@ preds = model(time_series)
 ## Todo
 
 - [ ] beef up the transformer with latest findings
-- [ ] improvise a 2d version
+- [ ] improvise a 2d version - either global pool across time at end, or use a CLS token for attention pooling
 
 ## Citation
 
@@ -59,5 +59,25 @@ preds = model(time_series)
   eprint  = {2310.06625},
   archivePrefix = {arXiv},
   primaryClass = {cs.LG}
+}
+```
+
+```bibtex
+@misc{burtsev2020memory,
+    title   = {Memory Transformer},
+    author  = {Mikhail S. Burtsev and Grigory V. Sapunov},
+    year    = {2020},
+    eprint  = {2006.11527},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.CL}
+}
+```
+
+```bibtex
+@inproceedings{Darcet2023VisionTN,
+    title   = {Vision Transformers Need Registers},
+    author  = {Timoth'ee Darcet and Maxime Oquab and Julien Mairal and Piotr Bojanowski},
+    year    = {2023},
+    url     = {https://api.semanticscholar.org/CorpusID:263134283}
 }
 ```
