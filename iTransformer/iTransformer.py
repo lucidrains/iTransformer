@@ -9,6 +9,8 @@ from beartype.typing import Optional, Union, Tuple
 from einops import rearrange, reduce, repeat, pack, unpack
 from einops.layers.torch import Rearrange
 
+from iTransformer.attend import Attend
+
 # helper functions
 
 def exists(v):
@@ -28,7 +30,8 @@ class Attention(Module):
         dim,
         dim_head = 32,
         heads = 4,
-        dropout = 0.
+        dropout = 0.,
+        flash = True
     ):
         super().__init__()
         self.scale = dim_head ** -0.5
@@ -39,7 +42,7 @@ class Attention(Module):
             Rearrange('b n (qkv h d) -> qkv b h n d', qkv = 3, h = heads)
         )
 
-        self.dropout = nn.Dropout(dropout)
+        self.attend = Attend(flash = flash, dropout = dropout)
 
         self.to_out = nn.Sequential(
             Rearrange('b h n d -> b n (h d)'),
@@ -50,14 +53,7 @@ class Attention(Module):
     def forward(self, x):
         q, k, v = self.to_qkv(x)
 
-        q = q * self.scale
-
-        sim = einsum('b h i d, b h j d -> b h i j', q, k)
-
-        attn = sim.softmax(dim = -1)
-        attn = self.dropout(attn)
-
-        out = einsum('b h i j, b h j d -> b h i d', attn, v)
+        out = self.attend(q, k, v)
 
         return self.to_out(out)
 
@@ -90,7 +86,8 @@ class iTransformer(Module):
         attn_dropout = 0.,
         ff_mult = 4,
         ff_dropout = 0.,
-        num_mem_tokens = 4
+        num_mem_tokens = 4,
+        flash_attn = True
     ):
         super().__init__()
         self.num_variates = num_variates
@@ -104,7 +101,7 @@ class iTransformer(Module):
         self.layers = ModuleList([])
         for _ in range(depth):
             self.layers.append(ModuleList([
-                Attention(dim, dim_head = dim_head, heads = heads, dropout = attn_dropout),
+                Attention(dim, dim_head = dim_head, heads = heads, dropout = attn_dropout, flash = flash_attn),
                 nn.LayerNorm(dim),
                 FeedForward(dim, mult = ff_mult, dropout = ff_dropout),
                 nn.LayerNorm(dim)
