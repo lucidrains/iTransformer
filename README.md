@@ -6,6 +6,8 @@ Implementation of <a href="https://arxiv.org/abs/2310.06625">iTransformer</a> - 
 
 All that remains is tabular data (xgboost still champion here) before one can truly declare "Attention is all you need"
 
+In before Apple gets the authors to change the name.
+
 ## Install
 
 ```bash
