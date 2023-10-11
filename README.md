@@ -40,6 +40,11 @@ preds = model(time_series)
 #       -> (12: (2, 12, 137), 24: (2, 24, 137), 36: (2, 36, 137), 48: (2, 48, 137))
 ```
 
+## Todo
+
+- [ ] beef up the transformer with latest findings
+- [ ] improvise a 2d version
+
 ## Citation
 
 ```bibtex
