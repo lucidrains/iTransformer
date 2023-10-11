@@ -39,9 +39,12 @@ class Attention(Module):
             Rearrange('b n (qkv h d) -> qkv b h n d', qkv = 3, h = heads)
         )
 
+        self.dropout = nn.Dropout(dropout)
+
         self.to_out = nn.Sequential(
             Rearrange('b h n d -> b n (h d)'),
-            nn.Linear(dim_inner, dim, bias = False)
+            nn.Linear(dim_inner, dim, bias = False),
+            nn.Dropout(dropout)
         )
 
     def forward(self, x):
@@ -52,6 +55,7 @@ class Attention(Module):
         sim = einsum('b h i d, b h j d -> b h i j', q, k)
 
         attn = sim.softmax(dim = -1)
+        attn = self.dropout(attn)
 
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
 
