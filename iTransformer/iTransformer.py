@@ -141,7 +141,7 @@ class iTransformer(Module):
         assert x.shape[1:] == (self.lookback_len, self.num_variates)
 
         # the crux of the paper is basically treating variates as the spatial dimension in attention
-        # there is a lot of opportunity to improve on this, if the paper is successfully replciated
+        # there is a lot of opportunity to improve on this, if the paper is successfully replicated
 
         x = rearrange(x, 'b n v -> b v n')
         x = self.mlp_in(x)
