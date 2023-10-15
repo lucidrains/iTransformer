@@ -34,7 +34,7 @@ model = iTransformer(
     heads = 8,                       # attention heads
     dim_head = 64,                   # head dimension
     pred_length = (12, 24, 36, 48),  # can be one prediction, or many
-    num_tokens_per_variant = 1       # experimental setting that projects each variant to more than one token. the idea is that the network can learn to divide up into time tokens for more granular attention across time. thanks to flash attention, you should not have to worry about the quadratic
+    num_tokens_per_variate = 1       # experimental setting that projects each variate to more than one token. the idea is that the network can learn to divide up into time tokens for more granular attention across time. thanks to flash attention, you should be able to accommodate long sequence lengths just fine
 )
 
 time_series = torch.randn(2, 96, 137)  # (batch, lookback len, variates)
