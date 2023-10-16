@@ -41,7 +41,7 @@ time_series = torch.randn(2, 96, 137)  # (batch, lookback len, variates)
 
 preds = model(time_series)
 
-# preds -> Dict[int, Tensor[batch, variate, pred_length]]
+# preds -> Dict[int, Tensor[batch, pred_length, variate]]
 #       -> (12: (2, 12, 137), 24: (2, 24, 137), 36: (2, 36, 137), 48: (2, 48, 137))
 ```
 
