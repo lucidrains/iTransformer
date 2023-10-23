@@ -47,7 +47,8 @@ preds = model(time_series)
 
 ## Todo
 
-- [ ] beef up the transformer with latest findings
+- [x] beef up the transformer with latest findings
+
 - [ ] improvise a 2d version - either global pool across time at end, or use a CLS token for attention pooling
 
 ## Citation
@@ -60,6 +61,15 @@ preds = model(time_series)
   eprint  = {2310.06625},
   archivePrefix = {arXiv},
   primaryClass = {cs.LG}
+}
+```
+
+```bibtex
+@misc{shazeer2020glu,
+    title   = {GLU Variants Improve Transformer},
+    author  = {Noam Shazeer},
+    year    = {2020},
+    url     = {https://arxiv.org/abs/2002.05202}
 }
 ```
 
@@ -89,5 +99,16 @@ preds = model(time_series)
     author  = {Dao, Tri and Fu, Daniel Y. and Ermon, Stefano and Rudra, Atri and R{\'e}, Christopher},
     booktitle = {Advances in Neural Information Processing Systems},
     year    = {2022}
+}
+```
+
+```bibtex
+@Article{AlphaFold2021,
+    author  = {Jumper, John and Evans, Richard and Pritzel, Alexander and Green, Tim and Figurnov, Michael and Ronneberger, Olaf and Tunyasuvunakool, Kathryn and Bates, Russ and {\v{Z}}{\'\i}dek, Augustin and Potapenko, Anna and Bridgland, Alex and Meyer, Clemens and Kohl, Simon A A and Ballard, Andrew J and Cowie, Andrew and Romera-Paredes, Bernardino and Nikolov, Stanislav and Jain, Rishub and Adler, Jonas and Back, Trevor and Petersen, Stig and Reiman, David and Clancy, Ellen and Zielinski, Michal and Steinegger, Martin and Pacholska, Michalina and Berghammer, Tamas and Bodenstein, Sebastian and Silver, David and Vinyals, Oriol and Senior, Andrew W and Kavukcuoglu, Koray and Kohli, Pushmeet and Hassabis, Demis},
+    journal = {Nature},
+    title   = {Highly accurate protein structure prediction with {AlphaFold}},
+    year    = {2021},
+    doi     = {10.1038/s41586-021-03819-2},
+    note    = {(Accelerated article preview)},
 }
 ```

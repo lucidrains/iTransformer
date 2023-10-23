@@ -42,6 +42,12 @@ class Attention(Module):
             Rearrange('b n (qkv h d) -> qkv b h n d', qkv = 3, h = heads)
         )
 
+        self.to_v_gates = nn.Sequential(
+            nn.Linear(dim, dim_inner, bias = False),
+            nn.SiLU(),
+            Rearrange('b n (h d) -> b h n d', h = heads)
+        )
+
         self.attend = Attend(flash = flash, dropout = dropout)
 
         self.to_out = nn.Sequential(
@@ -55,15 +61,21 @@ class Attention(Module):
 
         out = self.attend(q, k, v)
 
+        out = out * self.to_v_gates(x)
         return self.to_out(out)
 
 # feedforward
 
+class GEGLU(Module):
+    def forward(self, x):
+        x, gate = rearrange(x, '... (r d) -> r ... d', r = 2)
+        return x * F.gelu(gate)
+
 def FeedForward(dim, mult = 4, dropout = 0.):
-    dim_inner = int(dim * mult)
+    dim_inner = int(dim * mult * 2 / 3)
     return nn.Sequential(
-        nn.Linear(dim, dim_inner),
-        nn.GELU(),
+        nn.Linear(dim, dim_inner * 2),
+        GEGLU(),
         nn.Dropout(dropout),
         nn.Linear(dim_inner, dim)
     )
