@@ -30,13 +30,14 @@ from iTransformer import iTransformer
 
 model = iTransformer(
     num_variates = 137,
-    lookback_len = 96,               # or the lookback length in the paper
-    dim = 256,                       # model dimensions
-    depth = 6,                       # depth
-    heads = 8,                       # attention heads
-    dim_head = 64,                   # head dimension
-    pred_length = (12, 24, 36, 48),  # can be one prediction, or many
-    num_tokens_per_variate = 1       # experimental setting that projects each variate to more than one token. the idea is that the network can learn to divide up into time tokens for more granular attention across time. thanks to flash attention, you should be able to accommodate long sequence lengths just fine
+    lookback_len = 96,                  # or the lookback length in the paper
+    dim = 256,                          # model dimensions
+    depth = 6,                          # depth
+    heads = 8,                          # attention heads
+    dim_head = 64,                      # head dimension
+    pred_length = (12, 24, 36, 48),     # can be one prediction, or many
+    num_tokens_per_variate = 1,         # experimental setting that projects each variate to more than one token. the idea is that the network can learn to divide up into time tokens for more granular attention across time. thanks to flash attention, you should be able to accommodate long sequence lengths just fine
+    use_reversible_instance_norm = True # use reversible instance normalization, proposed here https://openreview.net/forum?id=cGDAkQo1C0p . may be redundant given the layernorms within iTransformer (and whatever else attention learns emergently on the first layer, prior to the first layernorm). if i come across some time, i'll gather up all the statistics across variates, project them, and condition the transformer a bit further. that makes more sense
 )
 
 time_series = torch.randn(2, 96, 137)  # (batch, lookback len, variates)
@@ -112,5 +113,15 @@ preds = model(time_series)
     year    = {2021},
     doi     = {10.1038/s41586-021-03819-2},
     note    = {(Accelerated article preview)},
+}
+```
+
+```bibtex
+@inproceedings{kim2022reversible,
+    title   = {Reversible Instance Normalization for Accurate Time-Series Forecasting against Distribution Shift},
+    author  = {Taesung Kim and Jinhee Kim and Yunwon Tae and Cheonbok Park and Jang-Ho Choi and Jaegul Choo},
+    booktitle = {International Conference on Learning Representations},
+    year    = {2022},
+    url     = {https://openreview.net/forum?id=cGDAkQo1C0p}
 }
 ```

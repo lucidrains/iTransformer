@@ -1,1 +1,4 @@
-from iTransformer.iTransformer import iTransformer
+from iTransformer.iTransformer import (
+    iTransformer,
+    RevIN
+)

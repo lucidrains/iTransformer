@@ -4,7 +4,7 @@ from torch.nn import Module, ModuleList
 import torch.nn.functional as F
 
 from beartype import beartype
-from beartype.typing import Optional, Union, Tuple
+from beartype.typing import Optional, Union, Tuple, Callable
 
 from einops import rearrange, reduce, repeat, pack, unpack
 from einops.layers.torch import Rearrange
@@ -19,8 +19,39 @@ def exists(v):
 def default(v, d):
     return v if exists(v) else d
 
+def identity(t, *args, **kwargs):
+    return t
+
 def cast_tuple(t):
     return (t,) if not isinstance(t, tuple) else t
+
+# reversible instance normalization
+# proposed in https://openreview.net/forum?id=cGDAkQo1C0p
+
+class RevIN(Module):
+    def __init__(self, num_variates, eps = 1e-5):
+        super().__init__()
+        self.eps = eps
+        self.num_variates = num_variates
+        self.gamma = nn.Parameter(torch.ones(num_variates, 1))
+        self.beta = nn.Parameter(torch.zeros(num_variates, 1))
+
+    @beartype
+    def forward(self, x) -> Tuple[Tensor, Callable[Tensor, Tensor]]:
+        assert x.shape[1] == self.num_variates
+
+        var = torch.var(x, dim = -1, unbiased = False, keepdim = True)
+        mean = torch.mean(x, dim = -1, keepdim = True)
+        var_rsqrt = var.clamp(min = self.eps).rsqrt()
+        instance_normalized = (x - mean) * var_rsqrt
+        rescaled = instance_normalized * self.gamma + self.beta
+
+        def reverse_fn(scaled_output):
+            clamped_gamma = torch.sign(self.gamma) * self.gamma.abs().clamp(min = self.eps)
+            unscaled_output = (scaled_output - self.beta) / clamped_gamma
+            return unscaled_output * var.sqrt() + mean
+
+        return rescaled, reverse_fn
 
 # attention
 
@@ -99,6 +130,7 @@ class iTransformer(Module):
         ff_mult = 4,
         ff_dropout = 0.,
         num_mem_tokens = 4,
+        use_reversible_instance_norm = False,
         flash_attn = True
     ):
         super().__init__()
@@ -109,6 +141,8 @@ class iTransformer(Module):
 
         pred_length = cast_tuple(pred_length)
         self.pred_length = pred_length
+
+        self.reversible_instance_norm = RevIN(num_variates) if use_reversible_instance_norm else None
 
         self.layers = ModuleList([])
         for _ in range(depth):
@@ -156,6 +190,10 @@ class iTransformer(Module):
         # there is a lot of opportunity to improve on this, if the paper is successfully replicated
 
         x = rearrange(x, 'b n v -> b v n')
+
+        if exists(self.reversible_instance_norm):
+            x, reverse_fn = self.reversible_instance_norm(x)
+
         x = self.mlp_in(x)
 
         # memory tokens
@@ -176,6 +214,11 @@ class iTransformer(Module):
 
         if has_mem:
             _, x = unpack(x, mem_ps, 'b * d')
+
+        # reversible instance normaization, if needed
+
+        if exists(self.reversible_instance_norm):
+            x = reverse_fn(x)
 
         # predicting multiple times
 
