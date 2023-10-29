@@ -128,7 +128,7 @@ class Attend(nn.Module):
             i, j, dtype = *sim.shape[-2:], sim.dtype
             mask_value = -torch.finfo(sim.dtype).max
             causal_mask = torch.ones((i, j), dtype = torch.bool, device = device).triu(j - i + 1)
-            sim = sim.masked_fill(~causal_mask, mask_value)
+            sim = sim.masked_fill(causal_mask, mask_value)
 
         attn = sim.softmax(dim = -1)
         attn = attn.type(dtype)
