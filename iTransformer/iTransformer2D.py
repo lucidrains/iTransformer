@@ -83,7 +83,7 @@ class Attention(Module):
         q, k, v = self.to_qkv(x)
 
         if exists(self.rotary_emb):
-            q, k = map(lambda t: rotary_emb.rotate_queries_or_keys(t), (q, k))
+            q, k = map(self.rotary_emb.rotate_queries_or_keys, (q, k))
 
         out = self.attend(q, k, v)
 
@@ -177,7 +177,7 @@ class iTransformer2D(Module):
 
         self.reversible_instance_norm = RevIN(num_variates) if use_reversible_instance_norm else None
 
-        self.rotary_emb = RotaryEmbedding(dim_head)
+        rotary_emb = RotaryEmbedding(dim_head)
 
         self.layers = ModuleList([])
 
@@ -193,7 +193,7 @@ class iTransformer2D(Module):
 
         for _ in range(depth):
             self.layers.append(ModuleList([
-                TransformerBlock(causal = True, **block_kwargs),
+                TransformerBlock(causal = True, rotary_emb = rotary_emb, **block_kwargs),
                 TransformerBlock(causal = False, **block_kwargs)
             ]))
 
