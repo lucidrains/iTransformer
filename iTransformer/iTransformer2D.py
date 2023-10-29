@@ -6,6 +6,9 @@ import torch.nn.functional as F
 from beartype import beartype
 from beartype.typing import Optional, Union, Tuple
 
+# to understand Alex's brilliant (un)pack abstraction, please go through the following tutorial
+# https://github.com/arogozhnikov/einops/blob/master/docs/4-pack-and-unpack.ipynb
+
 from einops import rearrange, reduce, repeat, pack, unpack
 from einops.layers.torch import Rearrange
 
@@ -249,8 +252,7 @@ class iTransformer2D(Module):
 
         # combine time and variate tokens into 2d feature map of variates and time
 
-        v = rearrange(v, 'b v d -> b v 1 d')
-        x = torch.cat((t, v), dim = -2)
+        x, variate_pool_token_ps = pack((t, v), 'b v * d')
 
         # memory tokens
 
@@ -284,7 +286,7 @@ class iTransformer2D(Module):
 
         # get back the original variate pooled tokens
 
-        v = x[..., -1, :]
+        _, v = unpack(x, variate_pool_token_ps, 'b v * d')
 
         # reversible instance normaization, if needed
 
