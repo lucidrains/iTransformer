@@ -117,6 +117,7 @@ class TransformerBlock(Module):
         dim_head = 32,
         heads = 8,
         ff_mult = 4,
+        flash_attn = True,
         attn_dropout = 0.,
         ff_dropout = 0.,
         rotary_emb: Optional[RotaryEmbedding] = None,
@@ -124,7 +125,7 @@ class TransformerBlock(Module):
         super().__init__()
         self.rotary_emb = rotary_emb
 
-        self.attn = Attention(rotary_emb = rotary_emb, causal = causal, dim = dim, dim_head = dim_head, heads = heads, dropout = attn_dropout)
+        self.attn = Attention(flash = flash_attn, rotary_emb = rotary_emb, causal = causal, dim = dim, dim_head = dim_head, heads = heads, dropout = attn_dropout)
         self.ff = FeedForward(dim = dim, mult = ff_mult, dropout = ff_dropout)
         self.attn_norm = nn.LayerNorm(dim)
         self.ff_norm = nn.LayerNorm(dim)
@@ -186,7 +187,8 @@ class iTransformer2D(Module):
             heads = heads,
             ff_mult = ff_mult,
             attn_dropout = attn_dropout,
-            ff_dropout = ff_dropout
+            ff_dropout = ff_dropout,
+            flash_attn = flash_attn
         )
 
         for _ in range(depth):
