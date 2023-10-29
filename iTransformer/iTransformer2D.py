@@ -22,8 +22,17 @@ def exists(v):
 def default(v, d):
     return v if exists(v) else d
 
+def pack_one(t, pattern):
+    return pack([t], pattern)
+
+def unpack_one(t, ps, pattern):
+    return unpack(t, ps, pattern)[0]
+
 def identity(t, *args, **kwargs):
     return t
+
+def divisible_by(num, den):
+    return (num % den) == 0
 
 def cast_tuple(t):
     return (t,) if not isinstance(t, tuple) else t
@@ -37,11 +46,15 @@ class Attention(Module):
         dim_head = 32,
         heads = 4,
         dropout = 0.,
-        flash = True
+        causal = False,
+        flash = True,
+        rotary_emb: Optional[RotaryEmbedding] = None,
     ):
         super().__init__()
         self.scale = dim_head ** -0.5
         dim_inner = dim_head * heads
+
+        self.rotary_emb = rotary_emb
 
         self.to_qkv = nn.Sequential(
             nn.Linear(dim, dim_inner * 3, bias = False),
@@ -54,7 +67,7 @@ class Attention(Module):
             Rearrange('b n (h d) -> b h n d', h = heads)
         )
 
-        self.attend = Attend(flash = flash, dropout = dropout)
+        self.attend = Attend(flash = flash, dropout = dropout, causal = causal)
 
         self.to_out = nn.Sequential(
             Rearrange('b h n d -> b n (h d)'),
@@ -62,8 +75,12 @@ class Attention(Module):
             nn.Dropout(dropout)
         )
 
+    @beartype
     def forward(self, x):
         q, k, v = self.to_qkv(x)
+
+        if exists(self.rotary_emb):
+            q, k = map(lambda t: rotary_emb.rotate_queries_or_keys(t), (q, k))
 
         out = self.attend(q, k, v)
 
@@ -86,6 +103,39 @@ def FeedForward(dim, mult = 4, dropout = 0.):
         nn.Linear(dim_inner, dim)
     )
 
+# transformer block
+
+class TransformerBlock(Module):
+    def __init__(
+        self,
+        *,
+        dim,
+        causal = False,
+        dim_head = 32,
+        heads = 8,
+        ff_mult = 4,
+        attn_dropout = 0.,
+        ff_dropout = 0.,
+        rotary_emb: Optional[RotaryEmbedding] = None,
+    ):
+        super().__init__()
+        self.rotary_emb = rotary_emb
+
+        self.attn = Attention(rotary_emb = rotary_emb, causal = causal, dim = dim, dim_head = dim_head, heads = heads, dropout = attn_dropout)
+        self.ff = FeedForward(dim = dim, mult = ff_mult, dropout = ff_dropout)
+        self.attn_norm = nn.LayerNorm(dim)
+        self.ff_norm = nn.LayerNorm(dim)
+
+    def forward(self, x, rotary_emb: Optional[RotaryEmbedding] = None):
+
+        x = self.attn(x) + x
+        x = self.attn_norm(x)
+
+        x = self.ff(x) + x
+        x = self.ff_norm(x)
+
+        return x
+
 # main class
 
 class iTransformer2D(Module):
@@ -95,9 +145,9 @@ class iTransformer2D(Module):
         *,
         num_variates: int,
         lookback_len: int,
+        num_time_tokens: int,
         depth: int,
         dim: int,
-        num_tokens_per_variate = 1,
         pred_length: Union[int, Tuple[int, ...]],
         dim_head = 32,
         heads = 4,
@@ -109,8 +159,12 @@ class iTransformer2D(Module):
         flash_attn = True
     ):
         super().__init__()
+        assert divisible_by(lookback_len, num_time_tokens)
+        assert num_time_tokens >= 2
+
         self.num_variates = num_variates
         self.lookback_len = lookback_len
+        self.num_time_tokens = num_time_tokens
 
         self.mem_tokens = nn.Parameter(torch.randn(num_mem_tokens, dim)) if num_mem_tokens > 0 else None
 
@@ -119,18 +173,33 @@ class iTransformer2D(Module):
 
         self.reversible_instance_norm = RevIN(num_variates) if use_reversible_instance_norm else None
 
+        self.rotary_emb = RotaryEmbedding(dim_head)
+
         self.layers = ModuleList([])
+
+        block_kwargs = dict(
+            dim = dim,
+            dim_head = dim_head,
+            heads = heads,
+            ff_mult = ff_mult,
+            attn_dropout = attn_dropout,
+            ff_dropout = ff_dropout
+        )
+
         for _ in range(depth):
             self.layers.append(ModuleList([
-                Attention(dim, dim_head = dim_head, heads = heads, dropout = attn_dropout, flash = flash_attn),
-                nn.LayerNorm(dim),
-                FeedForward(dim, mult = ff_mult, dropout = ff_dropout),
-                nn.LayerNorm(dim)
+                TransformerBlock(causal = True, **block_kwargs),
+                TransformerBlock(causal = False, **block_kwargs)
             ]))
 
-        self.mlp_in = nn.Sequential(
-            nn.Linear(lookback_len, dim * num_tokens_per_variate),
-            Rearrange('b v (n d) -> b (v n) d', n = num_tokens_per_variate),
+        self.to_variate_token = nn.Sequential(
+            nn.Linear(lookback_len, dim),
+            nn.LayerNorm(dim)
+        )
+
+        self.to_time_tokens = nn.Sequential(
+            Rearrange('b v (t n) -> b v t n', t = num_time_tokens),
+            nn.Linear(lookback_len // num_time_tokens, dim),
             nn.LayerNorm(dim)
         )
 
@@ -138,8 +207,7 @@ class iTransformer2D(Module):
 
         for one_pred_length in pred_length:
             head = nn.Sequential(
-                Rearrange('b (v n) d -> b v (n d)', n = num_tokens_per_variate),
-                nn.Linear(dim * num_tokens_per_variate, one_pred_length),
+                nn.Linear(dim, one_pred_length),
                 Rearrange('b v n -> b n v')
             )
 
@@ -157,6 +225,7 @@ class iTransformer2D(Module):
         b - batch
         n - time
         v - variate
+        t - number of time tokens
         """
 
         has_mem = exists(self.mem_tokens)
@@ -170,35 +239,61 @@ class iTransformer2D(Module):
         if exists(self.reversible_instance_norm):
             x, reverse_fn = self.reversible_instance_norm(x)
 
-        x = self.mlp_in(x)
+        # derive the time tokens per variate 't'
+
+        t = self.to_time_tokens(x)
+
+        # 'v' will be the variate pool token, which is the same as the token per variate from iTransformer
+
+        v = self.to_variate_token(x)
+
+        # combine time and variate tokens into 2d feature map of variates and time
+
+        v = rearrange(v, 'b v d -> b v 1 d')
+        x = torch.cat((t, v), dim = -2)
 
         # memory tokens
 
         if has_mem:
-            m = repeat(self.mem_tokens, 'm d -> b m d', b = x.shape[0])
-            x, mem_ps = pack([m, x], 'b * d')
+            m = repeat(self.mem_tokens, 'm d -> b m t d', b = x.shape[0], t = x.shape[-2])
+            x, mem_ps = pack([m, x], 'b * t d')
 
         # attention and feedforward layers
 
-        for attn, attn_post_norm, ff, ff_post_norm in self.layers:
-            x = attn(x) + x
-            x = attn_post_norm(x)
-            x = ff(x) + x
-            x = ff_post_norm(x)
+        for time_attn_block, variate_attn_block in self.layers:
+            x, ps = pack_one(x, '* t d')
+
+            # causal attention across time for each variate
+            x = time_attn_block(x)
+
+            x = unpack_one(x, ps, '* t d')
+
+            x = rearrange(x, 'b v t d -> b t v d')
+            x, ps = pack_one(x, '* v d')
+
+            # full attention across variates (as in inverted Transformer paper)
+            x = variate_attn_block(x)
+
+            x = unpack_one(x, ps, '* v d')
+            x = rearrange(x, 'b t v d -> b v t d')
 
         # splice out memory tokens
 
         if has_mem:
-            _, x = unpack(x, mem_ps, 'b * d')
+            _, x = unpack(x, mem_ps, 'b * t d')
+
+        # get back the original variate pooled tokens
+
+        v = x[..., -1, :]
 
         # reversible instance normaization, if needed
 
         if exists(self.reversible_instance_norm):
-            x = reverse_fn(x)
+            v = reverse_fn(v)
 
         # predicting multiple times
 
-        pred_list = [fn(x) for fn in self.pred_heads]
+        pred_list = [fn(v) for fn in self.pred_heads]
 
         # calculate loss if targets is passed in
 
