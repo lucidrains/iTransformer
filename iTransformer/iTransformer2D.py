@@ -202,9 +202,13 @@ class iTransformer2D(Module):
             nn.LayerNorm(dim)
         )
 
+        time_kernel_size = lookback_len // num_time_tokens
+
         self.to_time_tokens = nn.Sequential(
-            Rearrange('b v (t n) -> b v t n', t = num_time_tokens),
-            nn.Linear(lookback_len // num_time_tokens, dim),
+            Rearrange('b v n -> (b v) 1 n'),
+            nn.ConstantPad1d((time_kernel_size, 0), value = 0.),
+            nn.Conv1d(1, dim, time_kernel_size * 2),
+            Rearrange('(b v) d t -> b v t d', v = num_variates),
             nn.LayerNorm(dim)
         )
 
