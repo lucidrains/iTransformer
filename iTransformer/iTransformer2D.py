@@ -158,6 +158,7 @@ class iTransformer2D(Module):
         n - time
         v - variate
         """
+
         has_mem = exists(self.mem_tokens)
         assert x.shape[1:] == (self.lookback_len, self.num_variates)
 

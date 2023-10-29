@@ -1,10 +1,18 @@
+from collections import namedtuple
+
 import torch
 from torch import nn, einsum, Tensor
 from torch.nn import Module, ModuleList
 import torch.nn.functional as F
 
-from beartype import beartype
-from beartype.typing import Tuple, Callable
+# constants
+
+Statistics = namedtuple('Statistics', [
+    'mean',
+    'variance',
+    'gamma',
+    'beta'
+])
 
 # reversible instance normalization
 # proposed in https://openreview.net/forum?id=cGDAkQo1C0p
@@ -17,8 +25,7 @@ class RevIN(Module):
         self.gamma = nn.Parameter(torch.ones(num_variates, 1))
         self.beta = nn.Parameter(torch.zeros(num_variates, 1))
 
-    @beartype
-    def forward(self, x) -> Tuple[Tensor, Callable[Tensor, Tensor]]:
+    def forward(self, x, return_statistics = False):
         assert x.shape[1] == self.num_variates
 
         var = torch.var(x, dim = -1, unbiased = False, keepdim = True)
@@ -32,4 +39,23 @@ class RevIN(Module):
             unscaled_output = (scaled_output - self.beta) / clamped_gamma
             return unscaled_output * var.sqrt() + mean
 
-        return rescaled, reverse_fn
+        if not return_statistics:
+            return rescaled, reverse_fn
+
+        statistics = Statistics(mean, var, self.gamma, self.beta)
+
+        return rescaled, reverse_fn, statistics
+
+# sanity check
+
+if __name__ == '__main__':
+
+    rev_in = RevIN(512)
+
+    x = torch.randn(2, 512, 1024)
+
+    normalized, reverse_fn, statistics = rev_in(x, return_statistics = True)
+
+    out = reverse_fn(normalized)
+
+    assert torch.allclose(x, out)
