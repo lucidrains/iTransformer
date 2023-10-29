@@ -48,11 +48,38 @@ preds = model(time_series)
 #       -> (12: (2, 12, 137), 24: (2, 24, 137), 36: (2, 36, 137), 48: (2, 48, 137))
 ```
 
+For an improvised version that does granular attention across time tokens (as well as the original per-variate tokens), just import `iTransformer2D` and set the additional `num_time_tokens`
+
+```python
+import torch
+from iTransformer import iTransformer2D
+
+# using solar energy settings
+
+model = iTransformer2D(
+    num_variates = 137,
+    num_time_tokens = 16,               # number of time tokens (patch size will be (look back length // num_time_tokens))
+    lookback_len = 96,                  # the lookback length in the paper
+    dim = 256,                          # model dimensions
+    depth = 6,                          # depth
+    heads = 8,                          # attention heads
+    dim_head = 64,                      # head dimension
+    pred_length = (12, 24, 36, 48),     # can be one prediction, or many
+    use_reversible_instance_norm = True # use reversible instance normalization
+)
+
+time_series = torch.randn(2, 96, 137)  # (batch, lookback len, variates)
+
+preds = model(time_series)
+
+# preds -> Dict[int, Tensor[batch, pred_length, variate]]
+#       -> (12: (2, 12, 137), 24: (2, 24, 137), 36: (2, 36, 137), 48: (2, 48, 137))
+```
+
 ## Todo
 
 - [x] beef up the transformer with latest findings
-
-- [ ] improvise a 2d version - either global pool across time at end, or use a CLS token for attention pooling
+- [x] improvise a 2d version across both variates and time
 
 ## Citation
 

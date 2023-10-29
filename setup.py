@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
   name = 'iTransformer',
   packages = find_packages(exclude=[]),
-  version = '0.2.0',
+  version = '0.3.0',
   license='MIT',
   description = 'iTransformer - Inverted Transformer Are Effective for Time Series Forecasting',
   author = 'Phil Wang',
@@ -20,6 +20,7 @@ setup(
   install_requires=[
     'beartype',
     'einops>=0.7.0',
+    'rotary-embedding-torch',
     'torch>=1.6',
   ],
   classifiers=[

@@ -45,12 +45,15 @@ class Attend(nn.Module):
         heads = None,
         scale = None,
         flash = False,
+        causal = False
     ):
         super().__init__()
         self.scale = scale
 
         self.dropout = dropout
         self.attn_dropout = nn.Dropout(dropout)
+
+        self.causal = causal
 
         # flash attention
 
@@ -81,16 +84,9 @@ class Attend(nn.Module):
 
     def flash_attn(
         self,
-        q, k, v,
-        mask = None
+        q, k, v
     ):
         batch, heads, q_len, _, k_len, is_cuda, device = *q.shape, k.shape[-2], q.is_cuda, q.device
-
-        # expand key padding mask
-
-        if exists(mask):
-            assert mask.ndim == 4
-            mask = mask.expand(batch, heads, q_len, k_len)
 
         # Check if there is a compatible device for flash attention
 
@@ -101,7 +97,7 @@ class Attend(nn.Module):
         with torch.backends.cuda.sdp_kernel(**config._asdict()):
             out = F.scaled_dot_product_attention(
                 q, k, v,
-                attn_mask = mask,
+                is_causal = self.causal,
                 dropout_p = self.dropout if self.training else 0.
             )
         
@@ -109,8 +105,7 @@ class Attend(nn.Module):
 
     def forward(
         self,
-        q, k, v,
-        mask = None
+        q, k, v
     ):
         """
         einstein notation
@@ -125,16 +120,15 @@ class Attend(nn.Module):
         scale = default(self.scale, q.shape[-1] ** -0.5)
 
         if self.flash:
-            return self.flash_attn(q, k, v, mask = mask)
+            return self.flash_attn(q, k, v)
 
         sim = einsum(f'b h i d, b h j d -> b h i j', q, k) * scale
 
-        i, j, dtype = *sim.shape[-2:], sim.dtype
-
-        mask_value = -torch.finfo(sim.dtype).max
-
-        if exists(mask):
-            sim = sim.masked_fill(~mask, mask_value)
+        if self.causal:
+            i, j, dtype = *sim.shape[-2:], sim.dtype
+            mask_value = -torch.finfo(sim.dtype).max
+            causal_mask = torch.ones((i, j), dtype = torch.bool, device = device).triu(j - i + 1)
+            sim = sim.masked_fill(~causal_mask, mask_value)
 
         attn = sim.softmax(dim = -1)
         attn = attn.type(dtype)
