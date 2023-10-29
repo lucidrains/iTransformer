@@ -20,6 +20,7 @@ setup(
   install_requires=[
     'beartype',
     'einops>=0.7.0',
+    'rotary-embedding-torch',
     'torch>=1.6',
   ],
   classifiers=[

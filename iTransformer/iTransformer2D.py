@@ -12,6 +12,8 @@ from einops.layers.torch import Rearrange
 from iTransformer.attend import Attend
 from iTransformer.revin import RevIN
 
+from rotary_embedding_torch import RotaryEmbedding
+
 # helper functions
 
 def exists(v):
@@ -86,7 +88,7 @@ def FeedForward(dim, mult = 4, dropout = 0.):
 
 # main class
 
-class iTransformer(Module):
+class iTransformer2D(Module):
     @beartype
     def __init__(
         self,
