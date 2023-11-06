@@ -50,6 +50,8 @@ preds = model(time_series)
 
 For an improvised version that does granular attention across time tokens (as well as the original per-variate tokens), just import `iTransformer2D` and set the additional `num_time_tokens`
 
+Update: It works! Thanks goes out to <a href="https://github.com/gdevos010">Greg DeVos</a> for running the experiment <a href="https://github.com/lucidrains/iTransformer/issues/6#issuecomment-1794989685">here</a>!
+
 ```python
 import torch
 from iTransformer import iTransformer2D
