@@ -52,6 +52,8 @@ For an improvised version that does granular attention across time tokens (as we
 
 Update: It works! Thanks goes out to <a href="https://github.com/gdevos010">Greg DeVos</a> for running the experiment <a href="https://github.com/lucidrains/iTransformer/issues/6#issuecomment-1794989685">here</a>!
 
+Update 2: Got an email. Yes you are free to write a paper on this, if the architecture holds up for your problem. I have no skin in the game
+
 ```python
 import torch
 from iTransformer import iTransformer2D
