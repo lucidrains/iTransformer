@@ -84,6 +84,7 @@ preds = model(time_series)
 
 - [x] beef up the transformer with latest findings
 - [x] improvise a 2d version across both variates and time
+- [ ] improvise a 3d version with variates, time, as well as FFT
 
 ## Citation
 
