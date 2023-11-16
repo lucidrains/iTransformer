@@ -160,6 +160,7 @@ class iTransformer2D(Module):
         ff_dropout = 0.,
         num_mem_tokens = 4,
         use_reversible_instance_norm = False,
+        reversible_instance_norm_affine = True,
         flash_attn = True
     ):
         super().__init__()
@@ -175,7 +176,7 @@ class iTransformer2D(Module):
         pred_length = cast_tuple(pred_length)
         self.pred_length = pred_length
 
-        self.reversible_instance_norm = RevIN(num_variates) if use_reversible_instance_norm else None
+        self.reversible_instance_norm = RevIN(num_variates, affine = reversible_instance_norm_affine) if use_reversible_instance_norm else None
 
         rotary_emb = RotaryEmbedding(dim_head)
 
