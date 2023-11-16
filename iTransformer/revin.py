@@ -18,12 +18,17 @@ Statistics = namedtuple('Statistics', [
 # proposed in https://openreview.net/forum?id=cGDAkQo1C0p
 
 class RevIN(Module):
-    def __init__(self, num_variates, eps = 1e-5):
+    def __init__(
+        self,
+        num_variates,
+        affine = True,
+        eps = 1e-5
+    ):
         super().__init__()
         self.eps = eps
         self.num_variates = num_variates
-        self.gamma = nn.Parameter(torch.ones(num_variates, 1))
-        self.beta = nn.Parameter(torch.zeros(num_variates, 1))
+        self.gamma = nn.Parameter(torch.ones(num_variates, 1), requires_grad = affine)
+        self.beta = nn.Parameter(torch.zeros(num_variates, 1), requires_grad = affine)
 
     def forward(self, x, return_statistics = False):
         assert x.shape[1] == self.num_variates
