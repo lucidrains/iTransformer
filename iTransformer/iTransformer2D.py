@@ -313,7 +313,7 @@ class iTransformer2D(Module):
             assert self.training
             mse_loss = 0.
             for target, pred in zip(targets, pred_list):
-                assert targets.shape == pred_list.shape
+                assert target.shape == pred.shape
 
                 mse_loss = mse_loss + F.mse_loss(target, pred)
 
