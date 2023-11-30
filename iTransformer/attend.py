@@ -115,7 +115,7 @@ class Attend(nn.Module):
         d - feature dimension
         """
 
-        n, heads, kv_heads, device = q.shape[-2], q.shape[1], k.shape[1], q.device
+        n, heads, kv_heads, device, dtype = q.shape[-2], q.shape[1], k.shape[1], q.device, q.dtype
 
         scale = default(self.scale, q.shape[-1] ** -0.5)
 

@@ -117,6 +117,7 @@ class iTransformer(Module):
         self.pred_length = pred_length
 
         self.reversible_instance_norm = RevIN(num_variates, affine = reversible_instance_norm_affine) if use_reversible_instance_norm else None
+        self.num_tokens_per_variate = num_tokens_per_variate
 
         self.layers = ModuleList([])
         for _ in range(depth):
@@ -156,7 +157,10 @@ class iTransformer(Module):
         b - batch
         n - time
         v - variate
+        t - num tokens per variate
         """
+        t = self.num_tokens_per_variate
+
         has_mem = exists(self.mem_tokens)
         assert x.shape[1:] == (self.lookback_len, self.num_variates)
 
@@ -192,7 +196,9 @@ class iTransformer(Module):
         # reversible instance normaization, if needed
 
         if exists(self.reversible_instance_norm):
+            x = rearrange(x, 'b (n t) d -> t b n d', t = t)
             x = reverse_fn(x)
+            x = rearrange(x, 't b n d -> b (n t) d', t = t)
 
         # predicting multiple times
 
