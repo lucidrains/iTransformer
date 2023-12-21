@@ -219,3 +219,12 @@ preds = model(time_series)
     url     = {https://openreview.net/forum?id=cGDAkQo1C0p}
 }
 ```
+
+```bibtex
+@inproceedings{Katsch2023GateLoopFD,
+    title   = {GateLoop: Fully Data-Controlled Linear Recurrence for Sequence Modeling},
+    author  = {Tobias Katsch},
+    year    = {2023},
+    url     = {https://api.semanticscholar.org/CorpusID:265018962}
+}
+```
