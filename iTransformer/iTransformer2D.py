@@ -15,6 +15,7 @@ from einops.layers.torch import Rearrange
 from iTransformer.attend import Attend
 from iTransformer.revin import RevIN
 
+from gateloop_transformer import SimpleGateLoopLayer
 from rotary_embedding_torch import RotaryEmbedding
 
 # helper functions
@@ -194,6 +195,7 @@ class iTransformer2D(Module):
 
         for _ in range(depth):
             self.layers.append(ModuleList([
+                SimpleGateLoopLayer(dim = dim),
                 TransformerBlock(causal = True, rotary_emb = rotary_emb, **block_kwargs),
                 TransformerBlock(causal = False, **block_kwargs)
             ]))
@@ -269,8 +271,11 @@ class iTransformer2D(Module):
 
         # attention and feedforward layers
 
-        for time_attn_block, variate_attn_block in self.layers:
+        for gateloop_block, time_attn_block, variate_attn_block in self.layers:
             x, ps = pack_one(x, '* t d')
+
+            # gateloop block
+            x = gateloop_block(x) + x
 
             # causal attention across time for each variate
             x = time_attn_block(x)
