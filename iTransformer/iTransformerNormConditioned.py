@@ -121,6 +121,7 @@ class iTransformerNormConditioned(Module):
         super().__init__()
         self.num_variates = num_variates
         self.lookback_len = lookback_len
+        self.num_tokens_per_variate = num_tokens_per_variate
 
         self.mem_tokens = nn.Parameter(torch.randn(num_mem_tokens, dim)) if num_mem_tokens > 0 else None
 
@@ -228,7 +229,11 @@ class iTransformerNormConditioned(Module):
 
         # denormalize
 
+        x = rearrange(x, 'b (v n) d -> n b v d', n = self.num_tokens_per_variate)
+
         x = (x * var.sqrt()) + mean
+
+        x = rearrange(x, 'n b v d -> b (v n) d')
 
         # predicting multiple times
 
