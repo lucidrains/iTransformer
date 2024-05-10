@@ -66,9 +66,9 @@ class Attention(Module):
         )
 
         self.to_v_gates = nn.Sequential(
-            nn.Linear(dim, dim_inner, bias = False),
-            nn.SiLU(),
-            Rearrange('b n (h d) -> b h n d', h = heads)
+            nn.Linear(dim, heads, bias = False),
+            nn.Sigmoid(),
+            Rearrange('b n h -> b h n 1', h = heads)
         )
 
         self.attend = Attend(flash = flash, dropout = dropout, causal = causal)
