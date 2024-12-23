@@ -201,3 +201,14 @@ preds = model(time_series)
     url     = {https://api.semanticscholar.org/CorpusID:265018962}
 }
 ```
+
+```bibtex
+@article{Zhou2024ValueRL,
+    title   = {Value Residual Learning For Alleviating Attention Concentration In Transformers},
+    author  = {Zhanchao Zhou and Tianyi Wu and Zhiyun Jiang and Zhenzhong Lan},
+    journal = {ArXiv},
+    year    = {2024},
+    volume  = {abs/2410.17897},
+    url     = {https://api.semanticscholar.org/CorpusID:273532030}
+}
+```

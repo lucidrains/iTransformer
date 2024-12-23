@@ -10,6 +10,8 @@ from packaging import version
 
 from einops import rearrange, repeat
 
+from torch.nn.attention import SDPBackend
+
 # constants
 
 EfficientAttentionConfig = namedtuple('EfficientAttentionConfig', ['enable_flash', 'enable_math', 'enable_mem_efficient'])
@@ -92,9 +94,18 @@ class Attend(nn.Module):
 
         config = self.cuda_config if is_cuda else self.cpu_config
 
+        str_to_backend = dict(
+            enable_flash = SDPBackend.FLASH_ATTENTION,
+            enable_mem_efficient = SDPBackend.EFFICIENT_ATTENTION,
+            enable_math = SDPBackend.MATH,
+            enable_cudnn = SDPBackend.CUDNN_ATTENTION
+        )
+
+        sdpa_backends = [str_to_backend[enable_str] for enable_str, enable in config._asdict().items() if enable]
+
         # pytorch 2.0 flash attn: q, k, v, mask, dropout, causal, softmax_scale
         
-        with torch.backends.cuda.sdp_kernel(**config._asdict()):
+        with torch.nn.attention.sdpa_kernel(sdpa_backends):
             out = F.scaled_dot_product_attention(
                 q, k, v,
                 is_causal = self.causal,

@@ -35,7 +35,8 @@ class Attention(Module):
         dim_head = 32,
         heads = 4,
         dropout = 0.,
-        flash = True
+        flash = True,
+        learned_value_residual_mix = False
     ):
         super().__init__()
         self.scale = dim_head ** -0.5
@@ -45,6 +46,12 @@ class Attention(Module):
             nn.Linear(dim, dim_inner * 3, bias = False),
             Rearrange('b n (qkv h d) -> qkv b h n d', qkv = 3, h = heads)
         )
+
+        self.to_value_residual_mix = nn.Sequential(
+            nn.Linear(dim, heads, bias = False),
+            Rearrange('b n h -> b h n 1'),
+            nn.Sigmoid()
+        ) if learned_value_residual_mix else None
 
         self.to_v_gates = nn.Sequential(
             nn.Linear(dim, heads, bias = False),
@@ -60,13 +67,25 @@ class Attention(Module):
             nn.Dropout(dropout)
         )
 
-    def forward(self, x):
+    def forward(
+        self,
+        x,
+        value_residual = None
+    ):
         q, k, v = self.to_qkv(x)
+
+        orig_v = v
+
+        if exists(self.to_value_residual_mix):
+            assert exists(value_residual)
+            mix = self.to_value_residual_mix(x)
+            v = v.lerp(value_residual, mix)
 
         out = self.attend(q, k, v)
 
         out = out * self.to_v_gates(x)
-        return self.to_out(out)
+
+        return self.to_out(out), orig_v
 
 # feedforward
 
@@ -120,9 +139,11 @@ class iTransformer(Module):
         self.num_tokens_per_variate = num_tokens_per_variate
 
         self.layers = ModuleList([])
-        for _ in range(depth):
+        for i in range(depth):
+            is_first = i == 0
+
             self.layers.append(ModuleList([
-                Attention(dim, dim_head = dim_head, heads = heads, dropout = attn_dropout, flash = flash_attn),
+                Attention(dim, dim_head = dim_head, heads = heads, dropout = attn_dropout, flash = flash_attn, learned_value_residual_mix = not is_first),
                 nn.LayerNorm(dim),
                 FeedForward(dim, mult = ff_mult, dropout = ff_dropout),
                 nn.LayerNorm(dim)
@@ -180,10 +201,20 @@ class iTransformer(Module):
             m = repeat(self.mem_tokens, 'm d -> b m d', b = x.shape[0])
             x, mem_ps = pack([m, x], 'b * d')
 
+        # value residual learning
+        # https://arxiv.org/abs/2410.17897
+
+        first_values = None
+
         # attention and feedforward layers
 
         for attn, attn_post_norm, ff, ff_post_norm in self.layers:
-            x = attn(x) + x
+
+            attn_out, values = attn(x, value_residual = first_values)
+            first_values = default(first_values, values)
+
+            x = x + attn_out
+
             x = attn_post_norm(x)
             x = ff(x) + x
             x = ff_post_norm(x)
