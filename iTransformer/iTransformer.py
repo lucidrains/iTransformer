@@ -12,6 +12,8 @@ from einops.layers.torch import Rearrange
 from iTransformer.attend import Attend
 from iTransformer.revin import RevIN
 
+from hyper_connections import HyperConnections
+
 # helper functions
 
 def exists(v):
@@ -41,6 +43,8 @@ class Attention(Module):
         super().__init__()
         self.scale = dim_head ** -0.5
         dim_inner = dim_head * heads
+
+        self.norm = nn.LayerNorm(dim, bias = False)
 
         self.to_qkv = nn.Sequential(
             nn.Linear(dim, dim_inner * 3, bias = False),
@@ -72,6 +76,8 @@ class Attention(Module):
         x,
         value_residual = None
     ):
+        x = self.norm(x)
+
         q, k, v = self.to_qkv(x)
 
         orig_v = v
@@ -97,6 +103,7 @@ class GEGLU(Module):
 def FeedForward(dim, mult = 4, dropout = 0.):
     dim_inner = int(dim * mult * 2 / 3)
     return nn.Sequential(
+        nn.LayerNorm(dim, bias = False),
         nn.Linear(dim, dim_inner * 2),
         GEGLU(),
         nn.Dropout(dropout),
@@ -122,6 +129,7 @@ class iTransformer(Module):
         ff_mult = 4,
         ff_dropout = 0.,
         num_mem_tokens = 4,
+        num_residual_streams = 4,
         use_reversible_instance_norm = False,
         reversible_instance_norm_affine = False,
         flash_attn = True
@@ -138,15 +146,15 @@ class iTransformer(Module):
         self.reversible_instance_norm = RevIN(num_variates, affine = reversible_instance_norm_affine) if use_reversible_instance_norm else None
         self.num_tokens_per_variate = num_tokens_per_variate
 
+        init_hyper_conn, self.expand_streams, self.reduce_streams = HyperConnections.get_init_and_expand_reduce_stream_functions(num_residual_streams, disable = num_residual_streams == 1)
+
         self.layers = ModuleList([])
         for i in range(depth):
             is_first = i == 0
 
             self.layers.append(ModuleList([
-                Attention(dim, dim_head = dim_head, heads = heads, dropout = attn_dropout, flash = flash_attn, learned_value_residual_mix = not is_first),
-                nn.LayerNorm(dim),
-                FeedForward(dim, mult = ff_mult, dropout = ff_dropout),
-                nn.LayerNorm(dim)
+                init_hyper_conn(dim = dim, branch = Attention(dim, dim_head = dim_head, heads = heads, dropout = attn_dropout, flash = flash_attn, learned_value_residual_mix = not is_first)),
+                init_hyper_conn(dim = dim, branch = FeedForward(dim, mult = ff_mult, dropout = ff_dropout)),
             ]))
 
         self.mlp_in = nn.Sequential(
@@ -206,18 +214,24 @@ class iTransformer(Module):
 
         first_values = None
 
+        # hyper connections expand stream
+
+        x = self.expand_streams(x)
+
         # attention and feedforward layers
 
-        for attn, attn_post_norm, ff, ff_post_norm in self.layers:
+        for attn, ff in self.layers:
 
             attn_out, values = attn(x, value_residual = first_values)
             first_values = default(first_values, values)
 
             x = x + attn_out
 
-            x = attn_post_norm(x)
             x = ff(x) + x
-            x = ff_post_norm(x)
+
+        # hyper connections reduce stream
+
+        x = self.reduce_streams(x)
 
         # splice out memory tokens
 
