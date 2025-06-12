@@ -264,7 +264,7 @@ class iTransformer(Module):
 
             return mse_loss
 
-        if len(pred_list) == 0:
+        if len(pred_list) == 1:
             return pred_list[0]
 
         pred_dict = dict(zip(self.pred_length, pred_list))
